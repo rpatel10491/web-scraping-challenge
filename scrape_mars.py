@@ -1,126 +1,95 @@
-# Scraping Mars Web Data
-
-# Dependencies
 import pandas as pd
-from splinter import Browser
 from bs4 import BeautifulSoup
+import requests
+import html
 import time
+import pymongo
+from splinter import Browser
+
+def init_browser():
+    executable_path = {"executable_path": "./chromedriver"}
+    return Browser("chrome", **executable_path, headless=False)
 
 def scrape():
-    # Set up path and browser
-    executable_path = {'executable_path': 'chromedriver.exe'}
-    browser = Browser('chrome', **executable_path, headless=False)
+    browser = init_browser()
 
+    url = 'https://mars.nasa.gov/news/'
 
-    # NASA Mars News Site
-    # Pulls latest news title and paragraph text
-    # Source: https://mars.nasa.gov/news/
+    browser.visit(url)
 
-    # Define URL
-    news_url = 'https://mars.nasa.gov/news/'
+    soup = BeautifulSoup(browser.html, 'html.parser')
 
-    # Visit url and retrieve html
-    browser.visit(news_url)
-    time.sleep(1)
-    news_html = browser.html
-    time.sleep(1)
-    soup = BeautifulSoup(news_html, 'html.parser')
+    results = soup.find('div', class_='list_text').a.text
+    results
+    results2 = soup.find('div', class_='article_teaser_body').text
 
-    # Pull first news headline and description
-    news_title = soup.find('div', class_='bottom_gradient').find('h3').text
-    news_p = soup.find('div', class_='article_teaser_body').text
+    mars_data = {
+    'Title' : results, 
+    'Paragraph' : results2,
+    }
 
-    # JPL Mars Space Images
-    # Pulls URL for featured Mars image (full size jpg image)
-    # Source: https://www.jpl.nasa.gov/spaceimages/?search=&category=Mars
+    url = 'https://www.jpl.nasa.gov/spaceimages/?search=&category=Mars'
+    browser.visit(url)
+    browser.find_by_id("full_image").click()
 
-    # Set up url
-    jpl_url = 'https://www.jpl.nasa.gov/spaceimages/?search=&category=Mars'
+    time.sleep(2)
 
-    # Navigate to website 
-    browser.visit(jpl_url)
-    time.sleep(1)
+    browser.find_link_by_partial_text("more info").click()
 
-    # Navigate to featured image
-    browser.links.find_by_partial_text('FULL IMAGE').click()
-    time.sleep(1)
+    time.sleep(2)
+    soup = BeautifulSoup(browser.html, 'html.parser')
+    picture = soup.find('figure', class_='lede').a.img["src"]
+    picture
 
-    # Navigate to page that has full-sized image
-    browser.links.find_by_partial_text('more info').click()
-    time.sleep(1)
+    featured_image = 'https://www.jpl.nasa.gov' + picture
+    featured_image
 
-    # Pull html and store image url
-    jpl_html = browser.html
-    soup = BeautifulSoup(jpl_html, 'html.parser')
-    image_url = soup.find('img', class_='main_image')['src']
-    featured_image_url = 'https://www.jpl.nasa.gov' + image_url
+    mars_data["featured_image"] = featured_image
 
-    # Mars Facts
-    # Pulls table containing facts about the planet
-    # Source: https://space-facts.com/mars/
+    url = 'https://space-facts.com/mars/'
 
-    # Scrape tables from webpage using Pandas
-    facts_url = 'https://space-facts.com/mars/'
-    tables = pd.read_html(facts_url)
-    mars_facts = tables[0].rename(columns={0: '', 1: ' '}).set_index('')
+    facts = pd.read_html(url)
 
-    # Use Pandas to convert to HTML table string
-    mars_facts_html = mars_facts.to_html()
+    facts_cleaned = facts[1]
 
-    # Mars Hemispheres
-    # Pulls high resolution images of each of Mar's hemispheres
-    # * Source: https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars
+    facts_cleaned.columns = ["Description" , "Mars", "Earth"]
 
-    # Set up url
-    hemi_url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    facts_cleaned
 
-    # List of hemispheres
-    hemispheres = ['Valles Marineris Hemisphere', 'Cerberus Hemisphere', 'Schiaparelli Hemisphere', 'Syrtis Major Hemisphere']
+    mars_table = facts_cleaned.to_html()
 
-    # Empty list to store image urls
-    hemisphere_image_urls = []
+    mars_table
 
-    # Open up webpage
-    browser.visit(hemi_url)
+    mars_data["Facts"] = mars_table
 
-    # For each hemisphere, pull image url and store with associated hemisphere name
-    for hemi in hemispheres: 
-        hemi_dict = {}
-        try:
-            # Click on hemisphere link
-            browser.links.find_by_partial_text(hemi).click()
-            time.sleep(1)
-            # Click on 'Open' to get to full image stored on page
-            browser.links.find_by_partial_text('Open').click()
-            time.sleep(1)
-            
-            # Pull html
-            hemi_html = browser.html
-            soup = BeautifulSoup(hemi_html, 'html.parser')
-            
-            # Pull full-sized image url
-            image_url = soup.find('img', class_='wide-image')['src']
-            
-            # Go back to main page
-            browser.back()
-            
-            # Store image link in dictionary and append to list
-            full_image_url = 'https://astrogeology.usgs.gov' + image_url
-            hemi_dict['title'] = hemi
-            hemi_dict['img_url'] = full_image_url
-            hemisphere_image_urls.append(hemi_dict)
-        except:
-            print('Webpage not found')
+    url = 'https://astrogeology.usgs.gov/search/results?q=hemisphere+enhanced&k1=target&v1=Mars'
+    browser.visit(url)
+    hemispheres = []
+
+    for i in range(4):
+        
+        hemisphere = {}
+        
+        browser.find_by_css("a.product-item h3")[i].click()
+        
+        soup = BeautifulSoup(browser.html, 'html.parser')
+        
+        title = soup.find("h2", class_='title').get_text()
+        
+        img = soup.find("a", text = "Sample").get("href")
+        
+        hemisphere["title"] = title
+        
+        hemisphere["img_url"] = img
+        
+        hemispheres.append(hemisphere)
+        
+        browser.back()
+        
+    hemispheres
+
+    mars_data["Hemispheres"] = hemispheres
 
     browser.quit()
-
-    # Store all scraped data in one dictionary
-    mars_data = {
-        'news_t': news_title,
-        'news_p': news_p,
-        'feat_img_url': featured_image_url,
-        'mars_facts_table': mars_facts_html,
-        'hemi_img_urls': hemisphere_image_urls
-    }
 
     return mars_data

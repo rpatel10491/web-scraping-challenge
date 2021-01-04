@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title> Some things you might want to know about mars</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+
+<body>
+  <div class="container-fluid">
+    <div class="jumbotron text-center">
+      <h1>All the things you want to know about Mars</h1>
+      <p>and more</p>
+      <p><a class="btn btn-primary btn-lg" href="/scrape" role="button">Get Data!</a></p>
+    </div>
+    <!-- <img src="{{ mars.sloth_img }}" alt="Sloth"> -->
+    <h2>Latest NASA News</h2>
+    <h4>{{mars.Title}}</h4>
+    {{mars.Paragraph}}
+    <h2>Todays featured image <Br><img width="500" src="{{mars.featured_image}}"></h3>
+    <h3>Facts about Mars and Earth</h2>
+    {{mars.Facts | safe}}<br>
+
+    {%for hemisphere in mars.Hemispheres%}  
+    <h3>{{hemisphere.title}}</h3><br>
+    <img width = "300" src = "{{hemisphere.img_url}}"><br>
+    
+
+    {%endfor%}
+    
+  </div>
+  </div>
+</body>
+
+</html>
